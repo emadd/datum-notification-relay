@@ -1,0 +1,7 @@
+# Deployed into the Lambda dependency layer (see scripts/build_lambda_layer.sh
+# and lambda.tf). boto3/botocore are deliberately excluded -- every Lambda
+# runtime already bundles an AWS SDK, and pinning our own copy just doubles
+# the layer size for no benefit here (we don't need a newer botocore than
+# what the runtime ships).
+pyjwt[crypto]==2.9.0
+httpx[http2]==0.27.2
