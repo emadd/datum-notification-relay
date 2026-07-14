@@ -1,0 +1,4 @@
+-r requirements.txt
+pytest>=8
+moto[dynamodb]>=5
+freezegun>=1.5
