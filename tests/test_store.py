@@ -120,6 +120,30 @@ class TestListForDevice:
         ids = {j.id for j in jobs}
         assert ids == {mine1.id, mine2.id}
 
+    def test_an_unparseable_legacy_item_is_skipped_not_raised(self, store):
+        # Regression test for a real incident: a pre-rename item with the old
+        # "reminderAutoLog" kind (no longer a valid JobKind) sat in the table
+        # and, before this fix, raised out of list_for_device entirely --
+        # taking every OTHER job for that device down with it, not just the
+        # one bad row.
+        good = fetch_job(support_id="DTM-A", device_token="tokenA")
+        store.put(good)
+        store._table.put_item(
+            Item={
+                "id": "legacy-stale-item",
+                "kind": "reminderAutoLog",
+                "supportID": "DTM-A",
+                "deviceToken": "tokenA",
+                "duePartition": "DUE",
+                "nextDueAt": "2026-01-01T00:00:00Z",
+                "schedule": {"type": "hourly"},
+            }
+        )
+
+        jobs = store.list_for_device("DTM-A", "tokenA")
+        ids = {j.id for j in jobs}
+        assert ids == {good.id}
+
 
 class TestListDue:
     def test_only_due_jobs_are_returned(self, store):
