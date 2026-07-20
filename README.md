@@ -158,9 +158,11 @@ key + a real device to verify, all explicitly out of scope for this pass):**
 - `run_due_jobs.handle`'s end-to-end Lambda invocation (Secrets Manager read
   → fetch/skip → push → mark-ran/retire) — each piece is tested in
   isolation; the whole chain has not been run against real AWS resources.
-- The Terraform-provisioned infrastructure itself — `terraform validate` and
-  `terraform plan` both succeed cleanly (23 resources, 0 errors), but nothing
-  has been `apply`'d. See "Deploying" below for why, and what's needed first.
+- A *real* push actually reaching a *real* device via APNs — the
+  Terraform-provisioned infrastructure has been live in AWS since 2026-07-14
+  (see "Deploying" below), and `jobs_api`/`run_due_jobs` run in production on
+  every scheduled poll, but nobody has yet confirmed an end-to-end send with
+  a live APNs key and a live device.
 
 **Known, documented, left as follow-up (not attempted this pass):**
 - DNS-rebinding TOCTOU gap in `fetch.py` between the SSRF address check and
@@ -174,6 +176,10 @@ key + a real device to verify, all explicitly out of scope for this pass):**
 
 ## Deploying
 
+Live in AWS since 2026-07-14 (account `947047971987`, `datum` AWS CLI
+profile) — the steps below are the same whether standing the infra up fresh
+or pushing a routine code/infra change:
+
 ```sh
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements-dev.txt
@@ -183,18 +189,23 @@ pip install -r requirements-dev.txt
 # platform — every dependency ships pure-Python or manylinux wheels):
 ./scripts/build_lambda_layer.sh
 
+# The S3 backend doesn't inherit providers.tf's profile, so export this
+# before init (not just plan/apply) or it fails with "no valid credential
+# sources found":
+export AWS_PROFILE=datum
+
 terraform init
 terraform validate
-terraform plan     # needs read access via the `datum` AWS CLI profile
+terraform plan
 
-# NOT run as part of building this repo -- real, billed AWS infrastructure,
-# and it needs the APNs .p8 key populated first (see below) or pushes will
-# fail at send time (registration/scheduling still works without it).
+# Real, billed AWS infrastructure. If the APNs secret (below) isn't
+# populated yet, registration/scheduling still work — pushes just fail at
+# send time until it is.
 terraform apply
 ```
 
-After `apply`, populate the APNs secret out-of-band (never via Terraform —
-see `secrets.tf`):
+Populate the APNs secret out-of-band (never via Terraform — see
+`secrets.tf`) if it isn't already:
 
 ```sh
 aws secretsmanager put-secret-value \
