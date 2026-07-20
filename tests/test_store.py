@@ -67,10 +67,10 @@ def fetch_job(**overrides) -> Job:
     return Job(**defaults)
 
 
-def reminder_job(**overrides) -> Job:
+def automation_job(**overrides) -> Job:
     defaults = dict(
         id=Job.new_id(),
-        kind=JobKind.REMINDER_AUTO_LOG,
+        kind=JobKind.AUTOMATION_FIRE,
         schedule=Schedule(type=ScheduleType.ONCE, at=datetime(2026, 1, 2, tzinfo=UTC)),
         support_id="DTM-AAAA-BBBB-CCCC",
         device_token="deadbeef",
@@ -111,7 +111,7 @@ class TestPutGetDelete:
 class TestListForDevice:
     def test_lists_only_that_devices_jobs(self, store):
         mine1 = fetch_job(support_id="DTM-A", device_token="tokenA")
-        mine2 = reminder_job(support_id="DTM-A", device_token="tokenA")
+        mine2 = automation_job(support_id="DTM-A", device_token="tokenA")
         other = fetch_job(support_id="DTM-B", device_token="tokenB")
         for j in (mine1, mine2, other):
             store.put(j)

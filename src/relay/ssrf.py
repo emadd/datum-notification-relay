@@ -1,6 +1,6 @@
 """SSRF containment for `remoteFetch` jobs' outbound fetch.
 
-Applies ONLY to remoteFetch — a reminderAutoLog job carries no URL and never
+Applies ONLY to remoteFetch — an automationFire job carries no URL and never
 calls into this module at all (see handlers/run_due_jobs.py's kind branch).
 
 Split into a pure part (``validate_url_syntax`` — scheme/hostname shape,

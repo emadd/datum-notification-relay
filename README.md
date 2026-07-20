@@ -17,7 +17,7 @@ device token."
 ```
 Job {
   id: UUID
-  kind: "remoteFetch" | "reminderAutoLog"
+  kind: "remoteFetch" | "automationFire"
   schedule: oneShotDatetime | recurring     // once / hourly / everyNHours / dailyAtHour
   supportID: String          // anonymous per-account key, PII-free
   deviceToken: String        // per-device APNs token
@@ -26,8 +26,8 @@ Job {
   endpointURL: String?
   extractionPath: String?
 
-  // kind == "reminderAutoLog" only:
-  reminderID: UUID?
+  // kind == "automationFire" only:
+  automationID: UUID?
   targetKind: "tracker" | "checkIn"?
   targetID: UUID?
   metric: "increment" | "presenceOn" | "presenceOff"?
@@ -36,7 +36,7 @@ Job {
 
 `remoteFetch` jobs fetch `endpointURL` at the scheduled time, pick one scalar
 value out of the JSON response via `extractionPath` (a small dot-path
-grammar, not a full JSONPath), and push it. `reminderAutoLog` jobs send a
+grammar, not a full JSONPath), and push it. `automationFire` jobs send a
 bare silent push carrying `{targetKind, targetID, metric}` — no fetch, no
 external network call. Every push in v1 is silent
 (`content-available: 1`); the receiving app decides what, if anything, to
@@ -70,7 +70,7 @@ in favor of AWS (see the app repo's `NOTIFICATION-SERVER-INFRA.md` §6):
    EventBridge rule  ───▶ │  Lambda: run_due_jobs      │
    (rate(5 minutes))      │  - remoteFetch: SSRF-guarded│
                           │    HTTPS GET + JSON extract │
-                          │  - reminderAutoLog: no fetch │
+                          │  - automationFire: no fetch │
                           │  - signs an APNs ES256 JWT   │
                           │  - POSTs to APNs over HTTP/2 │
                           └───────┬───────────┬─────────┘

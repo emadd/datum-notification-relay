@@ -7,7 +7,7 @@ Kind branch is deliberately shallow, per NOTIFICATION-SERVER-INFRA.md §3:
 
 - ``remoteFetch``: SSRF-guarded HTTPS GET, extract a value via the JSON
   dot-path picker, push it silently.
-- ``reminderAutoLog``: no fetch at all — just push the opaque
+- ``automationFire``: no fetch at all — just push the opaque
   {targetKind, targetID, metric} the job already carries. This kind never
   touches ``relay.ssrf`` or ``relay.fetch``.
 
@@ -81,7 +81,7 @@ def dispatch_job(job: Job, *, config: APNsConfig, client: HTTPClient) -> bool:
         except (SSRFBlocked, FetchError, ExtractionError) as exc:
             logger.warning("job %s remoteFetch failed: %s", job.id, exc)
             return False
-    # reminderAutoLog: nothing to fetch, fall straight through to the push.
+    # automationFire: nothing to fetch, fall straight through to the push.
 
     payload = build_payload(job, extracted_value=extracted_value)
     try:

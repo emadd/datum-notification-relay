@@ -7,7 +7,7 @@ handler treats as JSON and the store treats as a DynamoDB item).
 
 Deliberately generic: nothing here references trackers, check-ins, categories,
 or any other Datum-app concept beyond the bare `targetKind`/`metric` vocabulary
-strings the job carries opaquely on the reminder-auto-log path.
+strings the job carries opaquely on the automation-fire path.
 """
 
 from __future__ import annotations
@@ -25,7 +25,7 @@ class ValidationError(ValueError):
 
 class JobKind(str, Enum):
     REMOTE_FETCH = "remoteFetch"
-    REMINDER_AUTO_LOG = "reminderAutoLog"
+    AUTOMATION_FIRE = "automationFire"
 
 
 class ScheduleType(str, Enum):
@@ -140,8 +140,8 @@ class Job:
     endpoint_url: Optional[str] = None
     extraction_path: Optional[str] = None
 
-    # kind == reminderAutoLog only
-    reminder_id: Optional[str] = None
+    # kind == automationFire only
+    automation_id: Optional[str] = None
     target_kind: Optional[TargetKind] = None
     target_id: Optional[str] = None
     metric: Optional[Metric] = None
@@ -169,17 +169,17 @@ class Job:
                 raise ValidationError(
                     "extractionPath is required for a remoteFetch job"
                 )
-        elif self.kind == JobKind.REMINDER_AUTO_LOG:
+        elif self.kind == JobKind.AUTOMATION_FIRE:
             if self.target_kind is None:
                 raise ValidationError(
-                    "targetKind is required for a reminderAutoLog job"
+                    "targetKind is required for an automationFire job"
                 )
             if not self.target_id:
                 raise ValidationError(
-                    "targetID is required for a reminderAutoLog job"
+                    "targetID is required for an automationFire job"
                 )
             if self.metric is None:
-                raise ValidationError("metric is required for a reminderAutoLog job")
+                raise ValidationError("metric is required for an automationFire job")
         else:  # pragma: no cover - Enum already constrains this
             raise ValidationError(f"unknown job kind {self.kind!r}")
 
@@ -198,8 +198,8 @@ class Job:
             d["endpointURL"] = self.endpoint_url
             d["extractionPath"] = self.extraction_path
         else:
-            if self.reminder_id is not None:
-                d["reminderID"] = self.reminder_id
+            if self.automation_id is not None:
+                d["automationID"] = self.automation_id
             d["targetKind"] = self.target_kind.value if self.target_kind else None
             d["targetID"] = self.target_id
             d["metric"] = self.metric.value if self.metric else None
@@ -228,7 +228,7 @@ class Job:
             device_token=d.get("deviceToken", ""),
             endpoint_url=d.get("endpointURL"),
             extraction_path=d.get("extractionPath"),
-            reminder_id=d.get("reminderID"),
+            automation_id=d.get("automationID"),
             target_kind=TargetKind(d["targetKind"]) if d.get("targetKind") else None,
             target_id=d.get("targetID"),
             metric=Metric(d["metric"]) if d.get("metric") else None,

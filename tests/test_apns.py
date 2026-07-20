@@ -44,10 +44,10 @@ def fetch_job(**overrides) -> Job:
     return Job(**defaults)
 
 
-def reminder_job(**overrides) -> Job:
+def automation_job(**overrides) -> Job:
     defaults = dict(
         id="job-2",
-        kind=JobKind.REMINDER_AUTO_LOG,
+        kind=JobKind.AUTOMATION_FIRE,
         schedule=Schedule(type=ScheduleType.DAILY_AT_HOUR, hour=9),
         support_id="DTM-AAAA-BBBB-CCCC",
         device_token="deadbeef",
@@ -101,8 +101,8 @@ class TestBuildPayload:
         payload = build_payload(job)
         assert "value" not in payload
 
-    def test_reminder_auto_log_payload_carries_target_and_metric(self):
-        job = reminder_job()
+    def test_automation_fire_payload_carries_target_and_metric(self):
+        job = automation_job()
         payload = build_payload(job)
         assert payload["targetKind"] == "tracker"
         assert payload["targetID"] == "cat-1"
@@ -112,7 +112,7 @@ class TestBuildPayload:
     def test_payload_never_carries_tracker_names_values_or_notes(self):
         # Guard against regressions that would leak app-content fields into
         # the relay's payload — it must stay opaque routing data only.
-        job = reminder_job()
+        job = automation_job()
         payload = build_payload(job)
         forbidden_keys = {"name", "note", "notes", "value", "label", "trackerName"}
         assert forbidden_keys.isdisjoint(payload.keys())

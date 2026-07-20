@@ -78,8 +78,8 @@ REMOTE_FETCH_BODY = {
     "extractionPath": "value",
 }
 
-REMINDER_BODY = {
-    "kind": "reminderAutoLog",
+AUTOMATION_BODY = {
+    "kind": "automationFire",
     "schedule": {"type": "dailyAtHour", "hour": 9},
     "supportID": "DTM-AAAA-BBBB-CCCC",
     "deviceToken": "devtoken1",
@@ -117,7 +117,7 @@ class TestPutJob:
 class TestGetJob:
     def test_returns_the_job(self, handler_module):
         handler_module.handle(
-            _event("PUT", "/jobs/job-1", path_params={"jobId": "job-1"}, body=REMINDER_BODY)
+            _event("PUT", "/jobs/job-1", path_params={"jobId": "job-1"}, body=AUTOMATION_BODY)
         )
         response = handler_module.handle(
             _event("GET", "/jobs/job-1", path_params={"jobId": "job-1"})
@@ -155,7 +155,7 @@ class TestListJobsForDevice:
             _event("PUT", "/jobs/job-1", path_params={"jobId": "job-1"}, body=REMOTE_FETCH_BODY)
         )
         handler_module.handle(
-            _event("PUT", "/jobs/job-2", path_params={"jobId": "job-2"}, body=REMINDER_BODY)
+            _event("PUT", "/jobs/job-2", path_params={"jobId": "job-2"}, body=AUTOMATION_BODY)
         )
         response = handler_module.handle(
             _event(

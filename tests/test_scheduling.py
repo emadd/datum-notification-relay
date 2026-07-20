@@ -133,10 +133,10 @@ def _fetch_job(schedule: Schedule, *, created_at: datetime, last_run_at=None) ->
     )
 
 
-def _reminder_job(schedule: Schedule, *, created_at: datetime, last_run_at=None) -> Job:
+def _automation_job(schedule: Schedule, *, created_at: datetime, last_run_at=None) -> Job:
     return Job(
         id="j",
-        kind=JobKind.REMINDER_AUTO_LOG,
+        kind=JobKind.AUTOMATION_FIRE,
         schedule=schedule,
         support_id="s",
         device_token="d",
@@ -164,11 +164,11 @@ class TestJobConvenienceWrappers:
         once = Schedule(type=ScheduleType.ONCE, at=dt(2026, 1, 1))
         recurring = Schedule(type=ScheduleType.HOURLY)
 
-        never_run = _reminder_job(once, created_at=dt(2025, 1, 1))
+        never_run = _automation_job(once, created_at=dt(2025, 1, 1))
         assert not job_is_exhausted(never_run)
 
-        fired = _reminder_job(once, created_at=dt(2025, 1, 1), last_run_at=dt(2026, 1, 1))
+        fired = _automation_job(once, created_at=dt(2025, 1, 1), last_run_at=dt(2026, 1, 1))
         assert job_is_exhausted(fired)
 
-        recurring_job = _reminder_job(recurring, created_at=dt(2025, 1, 1), last_run_at=dt(2026, 1, 1))
+        recurring_job = _automation_job(recurring, created_at=dt(2025, 1, 1), last_run_at=dt(2026, 1, 1))
         assert not job_is_exhausted(recurring_job)

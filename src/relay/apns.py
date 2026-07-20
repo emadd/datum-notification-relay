@@ -96,12 +96,12 @@ def build_payload(job: Job, *, extracted_value: Optional[float] = None) -> dict:
     if job.kind == JobKind.REMOTE_FETCH:
         if extracted_value is not None:
             body["value"] = extracted_value
-    elif job.kind == JobKind.REMINDER_AUTO_LOG:
+    elif job.kind == JobKind.AUTOMATION_FIRE:
         body["targetKind"] = job.target_kind.value if job.target_kind else None
         body["targetID"] = job.target_id
         body["metric"] = job.metric.value if job.metric else None
-        if job.reminder_id:
-            body["reminderID"] = job.reminder_id
+        if job.automation_id:
+            body["automationID"] = job.automation_id
 
     return body
 

@@ -27,10 +27,10 @@ def make_fetch_job(**overrides) -> Job:
     return Job(**defaults)
 
 
-def make_reminder_job(**overrides) -> Job:
+def make_automation_job(**overrides) -> Job:
     defaults = dict(
         id="job-2",
-        kind=JobKind.REMINDER_AUTO_LOG,
+        kind=JobKind.AUTOMATION_FIRE,
         schedule=Schedule(type=ScheduleType.DAILY_AT_HOUR, hour=9),
         support_id="DTM-AAAA-BBBB-CCCC",
         device_token="deadbeef",
@@ -111,16 +111,16 @@ class TestJobValidation:
     def test_remote_fetch_valid(self):
         make_fetch_job().validate()
 
-    def test_reminder_auto_log_requires_target_and_metric(self):
+    def test_automation_fire_requires_target_and_metric(self):
         with pytest.raises(ValidationError):
-            make_reminder_job(target_kind=None).validate()
+            make_automation_job(target_kind=None).validate()
         with pytest.raises(ValidationError):
-            make_reminder_job(target_id=None).validate()
+            make_automation_job(target_id=None).validate()
         with pytest.raises(ValidationError):
-            make_reminder_job(metric=None).validate()
+            make_automation_job(metric=None).validate()
 
-    def test_reminder_auto_log_valid(self):
-        make_reminder_job().validate()
+    def test_automation_fire_valid(self):
+        make_automation_job().validate()
 
     def test_requires_support_id_and_device_token(self):
         with pytest.raises(ValidationError):
@@ -140,18 +140,18 @@ class TestJobRoundTrip:
         assert restored.target_kind is None
         assert restored.metric is None
 
-    def test_reminder_auto_log_round_trips(self):
-        job = make_reminder_job()
+    def test_automation_fire_round_trips(self):
+        job = make_automation_job()
         d = job.to_dict()
         restored = Job.from_dict(d)
-        assert restored.kind == JobKind.REMINDER_AUTO_LOG
+        assert restored.kind == JobKind.AUTOMATION_FIRE
         assert restored.target_kind == TargetKind.TRACKER
         assert restored.target_id == "cat-1"
         assert restored.metric == Metric.INCREMENT
         assert restored.endpoint_url is None
 
     def test_from_dict_mints_id_when_missing(self):
-        d = make_reminder_job().to_dict()
+        d = make_automation_job().to_dict()
         del d["id"]
         restored = Job.from_dict(d)
         assert restored.id  # non-empty, minted
