@@ -22,6 +22,7 @@ from __future__ import annotations
 import logging
 import os
 from datetime import datetime, timezone
+from enum import Enum
 from typing import Any, Optional
 
 import boto3
@@ -39,6 +40,28 @@ logger.setLevel(logging.INFO)
 
 _apns_config: Optional[APNsConfig] = None
 _http_client: Optional[HTTPClient] = None
+
+
+class DispatchOutcome(str, Enum):
+    """The three genuinely-different results a single job's dispatch can
+    have. ``FAILED`` and ``DEAD_TOKEN`` used to collapse into the same
+    ``False`` return value; they need different handling in ``handle()`` so
+    they're now distinguished explicitly:
+
+    - ``SENT``: the push was delivered (HTTP 200 from APNs).
+    - ``FAILED``: the push did not succeed for a reason that might resolve
+      itself (offline device, transient 5xx, a malformed job, an exception
+      raised while fetching/extracting). Leave the job alone -- it's
+      retried on the next cron tick.
+    - ``DEAD_TOKEN``: APNs rejected the push with a 410 / reason
+      "Unregistered" -- Apple's documented, permanent "this device token
+      will never work again" signal. The job should be deleted outright
+      rather than retried forever.
+    """
+
+    SENT = "sent"
+    FAILED = "failed"
+    DEAD_TOKEN = "dead_token"
 
 
 def _load_apns_config() -> APNsConfig:
@@ -70,8 +93,11 @@ def _get_http_client() -> HTTPClient:
     return _http_client
 
 
-def dispatch_job(job: Job, *, config: APNsConfig, client: HTTPClient) -> bool:
-    """Fire one job's push. Returns True on a confirmed-sent push."""
+def dispatch_job(job: Job, *, config: APNsConfig, client: HTTPClient) -> DispatchOutcome:
+    """Fire one job's push. Returns a :class:`DispatchOutcome` -- SENT on a
+    confirmed-sent push, DEAD_TOKEN when APNs has permanently rejected the
+    device token (410 / reason "Unregistered"), FAILED for every other
+    non-success (transient errors, malformed jobs, exceptions)."""
     extracted_value = None
 
     if job.kind == JobKind.REMOTE_FETCH:
@@ -80,7 +106,7 @@ def dispatch_job(job: Job, *, config: APNsConfig, client: HTTPClient) -> bool:
             extracted_value = extract_number(data, job.extraction_path)
         except (SSRFBlocked, FetchError, ExtractionError) as exc:
             logger.warning("job %s remoteFetch failed: %s", job.id, exc)
-            return False
+            return DispatchOutcome.FAILED
     # automationFire: nothing to fetch, fall straight through to the push.
 
     payload = build_payload(job, extracted_value=extracted_value)
@@ -88,18 +114,32 @@ def dispatch_job(job: Job, *, config: APNsConfig, client: HTTPClient) -> bool:
         result = send_push(job.device_token, payload, config, client=client)
     except Exception as exc:  # noqa: BLE001 - one bad job must not kill the batch
         logger.warning("job %s push failed to send: %s", job.id, exc)
-        return False
+        return DispatchOutcome.FAILED
 
     if not result.ok:
+        # Per Apple's APNs contract, HTTP 410 with reason "Unregistered"
+        # means the device token is permanently invalid -- it will never
+        # succeed again. Either signal alone is authoritative for that
+        # case; check both since we only need one to be sure.
+        if result.status_code == 410 or result.reason == "Unregistered":
+            logger.warning(
+                "job %s device token permanently invalid (APNs 410/Unregistered): "
+                "status=%s reason=%s",
+                job.id,
+                result.status_code,
+                result.reason,
+            )
+            return DispatchOutcome.DEAD_TOKEN
+
         logger.warning(
             "job %s push rejected by APNs: status=%s reason=%s",
             job.id,
             result.status_code,
             result.reason,
         )
-        return False
+        return DispatchOutcome.FAILED
 
-    return True
+    return DispatchOutcome.SENT
 
 
 def handle(event: dict, context: Any = None) -> dict:  # noqa: ARG001
@@ -113,6 +153,7 @@ def handle(event: dict, context: Any = None) -> dict:  # noqa: ARG001
     sent = 0
     skipped = 0
     retired = 0
+    dead_token_deleted = 0
 
     for job in due_jobs:
         # Defensive re-check: the GSI query already filtered on nextDueAt,
@@ -121,21 +162,35 @@ def handle(event: dict, context: Any = None) -> dict:  # noqa: ARG001
         if not job_is_due(job, now=now):
             continue
 
-        ok = dispatch_job(job, config=config, client=client)
-        if ok:
+        outcome = dispatch_job(job, config=config, client=client)
+        if outcome == DispatchOutcome.SENT:
             sent += 1
             updated = store.mark_ran(job, ran_at=now)
             if job_is_exhausted(updated):
                 store.delete_exhausted(updated)
                 retired += 1
+        elif outcome == DispatchOutcome.DEAD_TOKEN:
+            # The push never succeeded, so there's nothing to record via
+            # mark_ran -- just remove the row for this permanently-dead
+            # device token via the same delete path a fired 'once' job
+            # uses, straight from the original (un-mutated) job object.
+            store.delete_exhausted(job)
+            dead_token_deleted += 1
         else:
             skipped += 1
 
     logger.info(
-        "run_due_jobs: due=%d sent=%d skipped=%d retired=%d",
+        "run_due_jobs: due=%d sent=%d skipped=%d retired=%d dead_token_deleted=%d",
         len(due_jobs),
         sent,
         skipped,
         retired,
+        dead_token_deleted,
     )
-    return {"due": len(due_jobs), "sent": sent, "skipped": skipped, "retired": retired}
+    return {
+        "due": len(due_jobs),
+        "sent": sent,
+        "skipped": skipped,
+        "retired": retired,
+        "dead_token_deleted": dead_token_deleted,
+    }
