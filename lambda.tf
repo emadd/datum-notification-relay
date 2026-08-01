@@ -56,6 +56,14 @@ resource "aws_lambda_function" "jobs_api" {
 
 # --- run_due_jobs Lambda, invoked on a schedule (see eventbridge.tf).
 
+locals {
+  # See variables.tf's apns_use_sandbox doc comment for the reasoning --
+  # this is what caused the 2026-08-01 BadDeviceToken incident (the dev
+  # environment was left on its old unconditional-false default while every
+  # build registering against it was Debug/devicectl-signed, i.e. sandbox).
+  apns_use_sandbox = var.apns_use_sandbox != null ? var.apns_use_sandbox : var.environment != "prod"
+}
+
 resource "aws_cloudwatch_log_group" "run_due_jobs" {
   name              = "/aws/lambda/datum-relay-run-due-jobs-${var.environment}"
   retention_in_days = var.log_retention_days
@@ -81,7 +89,7 @@ resource "aws_lambda_function" "run_due_jobs" {
       APNS_TEAM_ID     = var.apns_team_id
       APNS_KEY_ID      = var.apns_key_id
       APNS_BUNDLE_ID   = var.apns_bundle_id
-      APNS_USE_SANDBOX = tostring(var.apns_use_sandbox)
+      APNS_USE_SANDBOX = tostring(local.apns_use_sandbox)
     }
   }
 

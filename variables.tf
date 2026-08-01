@@ -23,9 +23,19 @@ variable "apns_bundle_id" {
 }
 
 variable "apns_use_sandbox" {
-  description = "True to send pushes to APNs' sandbox host instead of production."
+  description = <<-EOT
+    Which APNs host run_due_jobs sends to. true/false forces sandbox/production
+    outright; null (the default) derives it from `environment`: every
+    environment except "prod" sends to the sandbox host, since a Debug/
+    devicectl-signed build carries `aps-environment: development` (Xcode/App
+    Store Connect only flips it to "production" for a distribution-signed
+    archive), so a non-prod environment's registered device tokens are
+    sandbox-issued. Override only if a non-prod environment is deliberately
+    paired with distribution-signed builds, or vice versa.
+  EOT
   type        = bool
-  default     = false
+  default     = null
+  nullable    = true
 }
 
 variable "due_job_check_interval_minutes" {
