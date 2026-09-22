@@ -192,7 +192,7 @@ pip install -r requirements-dev.txt
 # The S3 backend doesn't inherit providers.tf's profile, so export this
 # before init (not just plan/apply) or it fails with "no valid credential
 # sources found":
-export AWS_PROFILE=datum
+export AWS_PROFILE=datum-sso
 
 terraform init
 terraform validate
@@ -209,7 +209,7 @@ Populate the APNs secret out-of-band (never via Terraform — see
 
 ```sh
 aws secretsmanager put-secret-value \
-  --profile datum \
+  --profile datum-sso \
   --secret-id datum-relay-apns-key-dev \
   --secret-string '{"privateKeyPem":"-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"}'
 ```

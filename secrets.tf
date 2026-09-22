@@ -7,7 +7,7 @@
 # populated out-of-band, after `terraform apply`, e.g.:
 #
 #   aws secretsmanager put-secret-value \
-#     --profile datum \
+#     --profile datum-sso \
 #     --secret-id datum-relay-apns-key-dev \
 #     --secret-string '{"privateKeyPem":"-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"}'
 #
